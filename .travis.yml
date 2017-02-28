@@ -1,0 +1,10 @@
+language: python
+
+compiler:
+    - cython
+
+install:
+    -
+
+script:
+    

@@ -2,6 +2,7 @@
 import argparse
 import matplotlib.pyplot as plt
 import os
+import re
 import requests
 import sys
 import tempfile
@@ -45,11 +46,12 @@ class Notifier(object):
         self.sysargs = parser.parse_args(args=argv)
 
     def start(self):
-        self.name = os.path.basename(self.sysargs.fpath)
-        self._start()
+        for path in self.sysargs.file:
+            self._start(path)
 
-    def _start(self):
-        with open(self.sysargs.fpath, 'r') as f:
+    def _start(self, path):
+        name = os.path.basename(path)
+        with open(path, 'r') as f:
             f.seek(0, 2)
             while True:
                 curr_position = f.tell()
@@ -58,18 +60,19 @@ class Notifier(object):
                     f.seek(curr_position)
                     time.sleep(self.interval)
                 else:
-                    self.callback(line)
+                    self.callback(line, name)
 
-    def callback(self, line):
+    def callback(self, line, name):
         losslist = re.search('Iteration ([0-9]+), loss = (.+)$', line)
         if losslist is None:
             return
         losslist = losslist.groups()
         self.iters.append(int(losslist[0]))
         self.losses.append(float(losslist[1]))
+        print('{} - {}'.format(losslist[0], losslist[1]))
         self.appendcount += 1
-        if self.appendcount >= 20:
-            self._send_telegram_photo(self.lossgraph(), self.basename)
+        if self.appendcount >= 5:
+            self._send_telegram_photo(self.lossgraph(), name)
             self.appendcount = 0
 
     def lossgraph(self):
@@ -78,7 +81,7 @@ class Notifier(object):
         plt.plot(self.iters, self.losses)
         plt.xlabel('iterations')
         plt.ylabel('loss')
-        plt.title(self.sysargs.fpath)
+        plt.title(self.sysargs.file)
         fig.savefig(fname)
         plt.close(fig)
         return fname
