@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import matplotlib.pyplot as plt
 import os
@@ -114,6 +115,7 @@ class Notifier(object):
 
 def main(argv):
     n = Notifier(argv)
+    n.start()
 
 
 if __name__ == '__main__':
