@@ -16,12 +16,15 @@ CONFIGFILE = 'config.yaml'
 class Notifier(object):
     API = 'https://api.telegram.org/bot'
 
-    def __init__(self, argv=None):
+    def __init__(self, argv=None, configfile=None):
         self.interval = 4
         self.appendcount = 0
         self.losses = []
         self.iters = []
-        self.loadConfig(CONFIGFILE)
+        if configfile is None:
+            self.loadConfig(CONFIGFILE)
+        else:
+            self.loadConfig(configfile)
         if argv is not None:
             self.parseArgs(argv)
 
@@ -112,7 +115,6 @@ class Notifier(object):
         print('Telegram in use with API KEY: {0}'.format(
             Notifier.APIKEY))
         r = requests.post(uri, payload, files=files)
-        print(r.json())
         r.raise_for_status()
 
 
