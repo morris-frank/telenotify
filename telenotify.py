@@ -69,16 +69,16 @@ class Notifier(object):
                     testiter = self.callback(line, name, testiter)
 
     def callback(self, line, name, testiter):
-        testloss = re.search('Iteration ([0-9]+), Testing net (', line)
+        testloss = re.search('Iteration ([0-9]+), Testing net', line)
         if testloss is not None:
             testloss = testloss.groups()
             return int(testloss[0])
         trainloss = re.search('Iteration ([0-9]+), loss = (.+)$', line)
-        testloss = re.search('Test net output #[0-9]+: loss = (.+)$', line)
+        testloss = re.search('Test net output \#([0-9])+: loss = ([0-9]+\.[0-9]+) .+$', line)
         if testloss is not None:
             testloss = testloss.groups()
             self.test_iters.append(testiter)
-            self.test_losses.append(float(testloss[0]))
+            self.test_losses.append(float(testloss[1]))
             print('Test: {} - {}'.format(testloss[0], testloss[1]))
         if trainloss is not None:
             trainloss = trainloss.groups()
