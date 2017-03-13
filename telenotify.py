@@ -19,8 +19,10 @@ class Notifier(object):
     def __init__(self, argv=None, configfile=None):
         self.interval = 4
         self.appendcount = 0
-        self.losses = []
-        self.iters = []
+        self.train_losses = []
+        self.train_iters = []
+        self.test_losses = []
+        self.test_iters = []
         if configfile is None:
             self.loadConfig(CONFIGFILE)
         else:
@@ -56,6 +58,7 @@ class Notifier(object):
         name = os.path.basename(path)
         with open(path, 'r') as f:
             f.seek(0, 2)
+            awaittest = 0
             while True:
                 curr_position = f.tell()
                 line = f.readline()
@@ -63,25 +66,36 @@ class Notifier(object):
                     f.seek(curr_position)
                     time.sleep(self.interval)
                 else:
-                    self.callback(line, name)
+                    testiter = self.callback(line, name, testiter)
 
-    def callback(self, line, name):
-        losslist = re.search('Iteration ([0-9]+), loss = (.+)$', line)
-        if losslist is None:
-            return
-        losslist = losslist.groups()
-        self.iters.append(int(losslist[0]))
-        self.losses.append(float(losslist[1]))
-        print('{} - {}'.format(losslist[0], losslist[1]))
-        self.appendcount += 1
-        if self.appendcount >= 5:
-            self._send_telegram_photo(self.lossgraph(name), name)
-            self.appendcount = 0
+    def callback(self, line, name, testiter):
+        testloss = re.search('Iteration ([0-9]+), Testing net (', line)
+        if testloss is not None:
+            testloss = testloss.groups()
+            return int(testloss[0])
+        trainloss = re.search('Iteration ([0-9]+), loss = (.+)$', line)
+        testloss = re.search('Test net output #[0-9]+: loss = (.+)$', line)
+        if testloss is not None:
+            testloss = testloss.groups()
+            self.test_iters.append(testiter)
+            self.test_losses.append(float(testloss[0]))
+            print('Test: {} - {}'.format(testloss[0], testloss[1]))
+        if trainloss is not None:
+            trainloss = trainloss.groups()
+            self.train_iters.append(int(trainloss[0]))
+            self.train_losses.append(float(trainloss[1]))
+            print('Train: {} - {}'.format(trainloss[0], trainloss[1]))
+            self.appendcount += 1
+            if self.appendcount >= 5:
+                self._send_telegram_photo(self.lossgraph(name), name)
+                self.appendcount = 0
+        return False
 
     def lossgraph(self, title):
         fname = str(time.time()) + '_lossgraph.png'
         fig = plt.figure(frameon=False)
-        plt.plot(self.iters, self.losses)
+        plt.plot(self.train_iters, self.train_losses, 'r',
+                 self.test_iters, self.test_losses, 'g')
         plt.xlabel('iterations')
         plt.ylabel('loss')
         plt.title(title)
