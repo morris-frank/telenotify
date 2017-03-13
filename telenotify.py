@@ -38,7 +38,7 @@ class Notifier(object):
                 print('Config {} not loadable.'.format(configfile))
                 sys.exit(1)
         Notifier.APIKEY = config['TELEGRAM_APIKEY']
-        Notifier.API += config['TELEGRAM_APIKEY'] + '/'
+        Notifier.API = config['TELEGRAM_APIKEY'] + '/'
         Notifier.ID = config['TELEGRAM_ID']
 
     def parseArgs(self, argv):
