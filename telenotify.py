@@ -75,16 +75,16 @@ class Notifier(object):
         print('{} - {}'.format(losslist[0], losslist[1]))
         self.appendcount += 1
         if self.appendcount >= 5:
-            self._send_telegram_photo(self.lossgraph(), name)
+            self._send_telegram_photo(self.lossgraph(name), name)
             self.appendcount = 0
 
-    def lossgraph(self):
+    def lossgraph(self, title):
         fname = str(time.time()) + '_lossgraph.png'
         fig = plt.figure(frameon=False)
         plt.plot(self.iters, self.losses)
         plt.xlabel('iterations')
         plt.ylabel('loss')
-        plt.title(self.sysargs.file)
+        plt.title(title)
         fig.savefig(fname)
         plt.close(fig)
         return fname
