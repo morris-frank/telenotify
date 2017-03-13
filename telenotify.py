@@ -58,7 +58,7 @@ class Notifier(object):
         name = os.path.basename(path)
         with open(path, 'r') as f:
             f.seek(0, 2)
-            awaittest = 0
+            testiter = 0
             while True:
                 curr_position = f.tell()
                 line = f.readline()
@@ -89,7 +89,7 @@ class Notifier(object):
             if self.appendcount >= 5:
                 self._send_telegram_photo(self.lossgraph(name), name)
                 self.appendcount = 0
-        return False
+        return 0
 
     def lossgraph(self, title):
         fname = str(time.time()) + '_lossgraph.png'
