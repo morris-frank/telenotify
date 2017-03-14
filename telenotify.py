@@ -14,7 +14,7 @@ CONFIGFILE = 'config.yaml'
 
 
 class Notifier(object):
-    API = 'https://api.telegram.org/bot'
+    APIBASE = 'https://api.telegram.org/bot'
 
     def __init__(self, argv=None, configfile=None):
         self.interval = 4
@@ -38,7 +38,7 @@ class Notifier(object):
                 print('Config {} not loadable.'.format(configfile))
                 sys.exit(1)
         Notifier.APIKEY = config['TELEGRAM_APIKEY']
-        Notifier.API = config['TELEGRAM_APIKEY'] + '/'
+        Notifier.API = Notifier.APIBASE + config['TELEGRAM_APIKEY'] + '/'
         Notifier.ID = config['TELEGRAM_ID']
 
     def parseArgs(self, argv):
