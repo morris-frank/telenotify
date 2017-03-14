@@ -5,6 +5,7 @@ import os
 import re
 import requests
 import sys
+from tabulate import tabulate
 import tempfile
 import time
 import yaml
@@ -103,6 +104,14 @@ class Notifier(object):
         plt.close(fig)
         return fname
 
+    def sendMatrix(self, matrix, preText=''):
+        strTable = '```\n{}{}```'.format(preText,
+                                         tabulate(matrix, tablefmt='grid'))
+        self.sendMessage(strTable)
+
+    def sendMessage(self, msg):
+        self._send_telegram_msg(str(time.time()), msg)
+
     def _send_telegram_photo(self, impath, caption=None):
         basename = os.path.basename(impath)
         ext = os.path.splitext(impath)[1][1:].lower()
@@ -122,7 +131,8 @@ class Notifier(object):
     def _send_telegram_msg(self, title, msg):
         message = '{0} : {1}'.format(title.encode(), msg.encode())
         uri = Notifier.API + 'sendMessage'
-        payload = {'chat_id': Notifier.ID, 'text': msg}
+        payload = {'chat_id': Notifier.ID, 'text': msg,
+                   'parse_mode': 'Markdown'}
         self._make_telegram_request(uri, payload)
 
     def _make_telegram_request(self, uri, payload, files=None):
