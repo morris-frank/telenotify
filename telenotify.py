@@ -19,7 +19,6 @@ class Notifier(object):
 
     def __init__(self, argv=None, configfile=None):
         self.interval = 4
-        self.appendcount = 0
         self.train_losses = []
         self.train_iters = []
         self.test_losses = []
@@ -80,16 +79,10 @@ class Notifier(object):
             testloss = testloss.groups()
             self.test_iters.append(testiter)
             self.test_losses.append(float(testloss[1]))
-            print('Test: {} - {}'.format(testloss[0], testloss[1]))
         if trainloss is not None:
             trainloss = trainloss.groups()
             self.train_iters.append(int(trainloss[0]))
             self.train_losses.append(float(trainloss[1]))
-            print('Train: {} - {}'.format(trainloss[0], trainloss[1]))
-            self.appendcount += 1
-            if self.appendcount >= 5:
-                self._send_telegram_photo(self.lossgraph(name), name)
-                self.appendcount = 0
         return 0
 
     def lossgraph(self, title):
@@ -107,10 +100,10 @@ class Notifier(object):
     def sendMatrix(self, matrix, preText=''):
         strTable = '```\n{}{}```'.format(preText,
                                          tabulate(matrix, tablefmt='grid'))
-        self.sendMessage(strTable)
+        self.sendMessage(strTable, markdown=True)
 
-    def sendMessage(self, msg):
-        self._send_telegram_msg(str(time.time()), msg)
+    def sendMessage(self, msg, markdown=False):
+        self._send_telegram_msg(str(time.time()), msg, markdown=markdown)
 
     def _send_telegram_photo(self, impath, caption=None):
         basename = os.path.basename(impath)
@@ -128,11 +121,12 @@ class Notifier(object):
             payload['caption'] = caption
         self._make_telegram_request(uri, payload, files=photopayload)
 
-    def _send_telegram_msg(self, title, msg):
+    def _send_telegram_msg(self, title, msg, markdown=False):
         message = '{0} : {1}'.format(title.encode(), msg.encode())
         uri = Notifier.API + 'sendMessage'
-        payload = {'chat_id': Notifier.ID, 'text': msg,
-                   'parse_mode': 'Markdown'}
+        payload = {'chat_id': Notifier.ID, 'text': msg}
+        if markdown:
+            payload['parse_mode'] = 'Markdown'
         self._make_telegram_request(uri, payload)
 
     def _make_telegram_request(self, uri, payload, files=None):
