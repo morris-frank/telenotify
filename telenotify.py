@@ -1,28 +1,36 @@
 #!/usr/bin/env python3
 import argparse
+from itertools import count
 import matplotlib.pyplot as plt
 import os
 import re
 import requests
 import sys
 from tabulate import tabulate
-import tempfile
 import time
 import yaml
 
 
 CONFIGFILE = 'config.yaml'
 
-
 class Notifier(object):
     APIBASE = 'https://api.telegram.org/bot'
+    TMPDIR = '/tmp/'
+
+    CAFFE_TRAIN_LOSS = {'Search': 'Iteration ([0-9]+) \(([0-9]+\.[0-9]+) iter\/s, ([0-9]+\.[0-9]+)s\/20 iters\), loss = ([0-9]+\.[0-9]+)',
+                        'Fields': [('Iteration', int, True, False),
+                                 ('Iter/s', float, False, False),
+                                 ('s/20 Iters', float, False, False),
+                                 ('Loss', float, False, True)]}
+
+    CAFFE_TEST_LOSS = {'Search': 'Test net output #0: loss = ([0-9]+\.[0-9]+)',
+                       'Fields': [('Loss', float, False, True)]}
 
     def __init__(self, argv=None, configfile=None):
         self.interval = 4
-        self.train_losses = []
-        self.train_iters = []
-        self.test_losses = []
-        self.test_iters = []
+        self._registered_re = {}
+        self._registered_vals = {}
+        self._registered_re_idx = 0
         if configfile is None:
             self.loadConfig(CONFIGFILE)
         else:
@@ -50,11 +58,23 @@ class Notifier(object):
         parser.add_argument('--lossgraph', action='store_true')
         self.sysargs = parser.parse_args(args=argv)
 
-    def start(self):
-        for path in self.sysargs.file:
-            self._start(path)
+    def parse_log_re(self, res):
+        assert(isinstance(res, dict))
+        assert(len(res) == 2)
+        assert('Search' in res)
+        assert('Fields' in res)
+        assert(isinstance(res['Search'], str))
+        assert(isinstance(res['Fields'], list))
+        for field in res['Fields']:
+            assert(isinstance(field, tuple))
+            assert(len(field) == 4)
+            assert(isinstance(field[0], str))
+            assert(isinstance(field[1], type))
+            assert(isinstance(field[2], bool))
+            assert(isinstance(field[3], bool))
+        return True
 
-    def _start(self, path):
+    def tail(self, path):
         name = os.path.basename(path)
         with open(path, 'r') as f:
             f.seek(0, 2)
@@ -66,32 +86,39 @@ class Notifier(object):
                     f.seek(curr_position)
                     time.sleep(self.interval)
                 else:
-                    testiter = self.callback(line, name, testiter)
+                    testiter = self.callback_re(line)
 
-    def callback(self, line, name, testiter):
-        testloss = re.search('Iteration ([0-9]+), Testing net', line)
-        if testloss is not None:
-            testloss = testloss.groups()
-            return int(testloss[0])
-        trainloss = re.search('Iteration ([0-9]+), loss = (.+)$', line)
-        testloss = re.search('Test net output \#([0-9])+: loss = ([0-9]+\.[0-9]+) .+$', line)
-        if testloss is not None:
-            testloss = testloss.groups()
-            self.test_iters.append(testiter)
-            self.test_losses.append(float(testloss[1]))
-        if trainloss is not None:
-            trainloss = trainloss.groups()
-            self.train_iters.append(int(trainloss[0]))
-            self.train_losses.append(float(trainloss[1]))
-        return 0
+    def register_re(self, res):
+        self.parse_log_re(res)
+        self._registered_re[str(self._registered_re_idx)] = res
+        self._registered_vals[str(self._registered_re_idx)] = {}
+        for fieldname, _type, _index, _display in res['Fields']:
+            self._registered_vals[str(self._registered_re_idx)][fieldname] = []
+        self._registered_re_idx += 1
+
+    def callback_re(self, line):
+        for res_key, res in self._registered_re.items():
+            res_search = re.search(res['Search'], line)
+            if res_search is None:
+                continue
+            res_search = res_search.groups()
+            for field_it, field in enumerate(res['Fields']):
+                self._registered_vals[res_key][field[0]].append(field[1](res_search[field_it]))
 
     def lossgraph(self, title):
-        fname = str(time.time()) + '_lossgraph.png'
+        fname = Notifier.TMPDIR + str(time.time()) + '_lossgraph.png'
         fig = plt.figure(frameon=False)
-        plt.plot(self.train_iters, self.train_losses, 'r',
-                 self.test_iters, self.test_losses, 'g')
-        plt.xlabel('iterations')
-        plt.ylabel('loss')
+        for res_key, res in self._registered_re.items():
+            for field in res['Fields']:
+                if field[2]:
+                    indexes = self._registered_vals[res_key][field[0]]
+                    xlabel = field[0]
+        for res_key, res in self._registered_re.items():
+            for fieldname, _type, _index, display in res['Fields']:
+                if display:
+                    fieldvalues = self._registered_vals[res_key][fieldname]
+                    plt.plot(indexes, fieldvalues, label=fieldname)
+        plt.xlabel(xlabel)
         plt.title(title)
         fig.savefig(fname)
         plt.close(fig)
@@ -138,7 +165,6 @@ class Notifier(object):
 
 def main(argv):
     n = Notifier(argv)
-    n.start()
 
 
 if __name__ == '__main__':
